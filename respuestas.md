@@ -37,3 +37,27 @@ Lleva `{ "sub": 1, "iat": ..., "exp": ... }`: el id del usuario, cuándo se cre�
 ## Pregunta 6
 
 Porque el `StaffGuard` no mira el rol en el token: con el `sub` busca al usuario en la base de datos en cada petición y ve el rol actual (`staff`). Si el rol fuera dentro del token, seguiría diciendo `member` hasta que hiciera login otra vez (y al revés: si le quitas el `staff`, podría seguir creando clases hasta que caducara el token).
+
+## Pregunta 7
+
+No necesita PostgreSQL porque le pasamos un `Pool` falso: `query` responde lo que le decimos con `mockResolvedValue`, así que solo probamos la lógica del servicio (si lanza el `400` y si hace o no el `INSERT`). Lo que no puede comprobar es que el SQL esté bien escrito ni que funcione contra la base de datos real (columnas, `JOIN`, claves ajenas...).
+
+## Pregunta 8
+
+Porque cada ejecución registra un usuario nuevo y el email es `UNIQUE`. Con un correo fijo, la segunda vez el registro daría `409` y los tests que dependen de ese usuario fallarían (o habría que borrar el usuario a mano antes de cada ejecución).
+
+## Pregunta 9
+
+Porque lo que va dentro del `${...}` nunca es el texto del cliente: el DTO solo deja pasar `startsAt`, `activity` o `spots` (`@IsIn`), y luego lo cambiamos por una columna de nuestra tabla `SORT_COLUMNS`. Con `?sort=id;DROP TABLE classes` el `ValidationPipe` responde `400` ("sort must be one of the following values...") y el SQL ni se ejecuta.
+
+## Pregunta 10
+
+Porque en el login es donde alguien puede probar contraseñas una detrás de otra (ataque de fuerza bruta). Con 5 intentos por minuto se vuelve lentísimo. Sin `trust proxy`, en Render todas las peticiones parecerían venir de la IP del proxy de Render, así que todos los usuarios compartirían el mismo límite y unos pocos bloquearían a todo el mundo.
+
+## Pregunta 11
+
+Sin la transacción la API respondió `400`, pero Óscar se quedó guardado en `trainers` y también su primera especialidad (Fuerza); la 99 no, porque ahí saltó el error. Quedó a medias: con `GET /api/v1/trainers/:id` salía con solo `["Fuerza"]`. Nuria no tiene el id 5 porque el intento anterior con `[2, 99]` hizo un `INSERT` que gastó el 5 aunque luego se deshizo con el `ROLLBACK`: los ids `IDENTITY` no vuelven atrás.
+
+## Pregunta 12
+
+Después del *Deploy latest commit* la foto da `404`, pero `GET /api/v1/trainers/1` sigue devolviendo el mismo `photoUrl`. El fichero estaba en la carpeta `uploads/` del disco del servidor, y en el plan gratis de Render ese disco se borra en cada despliegue (o cuando la API se duerme); la base de datos (Supabase) sí se conserva, por eso queda la dirección apuntando a nada. Las fotos habría que guardarlas fuera de la API, en un servicio de ficheros como Supabase Storage (o S3), y guardar en la base de datos su URL pública.
